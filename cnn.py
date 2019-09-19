@@ -7,13 +7,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class YKCNN(nn.Module):
-    """Yoon Kim CNN model without the Fully connected classification layer"""
-
+class YKCNNClassifier(nn.Module):
     def __init__(
         self,
         vocabulary_size,
         max_seq_length,
+        output_dims=2,
+        n_out_channels=100,
         embed_dim=300,
         padding_idx=0,
         kernel_heights=[3, 4, 5],
@@ -21,10 +21,11 @@ class YKCNN(nn.Module):
         add_embedding_layer=True,
     ):
         super().__init__()
-        self.n_out_channels = 100
+        self.n_out_channels = n_out_channels
         self.n_kernels = len(kernel_heights)
         self.pool_sizes = [(max_seq_length - K, 1) for K in kernel_heights]
         self.max_seq_length = max_seq_length
+        self.output_dims = output_dims
 
         if add_embedding_layer:
             self.embedding = nn.Embedding(
@@ -45,6 +46,7 @@ class YKCNN(nn.Module):
                 for pool_size in self.pool_sizes
             ]
         )
+        self.fc = nn.Linear(self.n_out_channels * self.n_kernels, output_dims)
 
 
     def forward(self, x):
@@ -53,8 +55,8 @@ class YKCNN(nn.Module):
         """
         batch_size = x.size(0)
         assert x.size(1) == self.max_seq_length
+        
         self.train()
-
         if self.embedding is not None:
             x = self.embedding(x)
         # adds input channel
@@ -73,4 +75,5 @@ class YKCNN(nn.Module):
             ] = activation
 
         x = concated_tensor.view(concated_tensor.shape[0], -1)
-        return self.dropout(x)
+        x = self.dropout(x)
+        return self.fc(x)
