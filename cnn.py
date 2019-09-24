@@ -19,6 +19,7 @@ class YKCNNClassifier(nn.Module):
         kernel_heights=[3, 4, 5],
         dropout=0,
         embedding_matrix=None,
+        freeze_embedding_layer=True,
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -33,6 +34,9 @@ class YKCNNClassifier(nn.Module):
         if embedding_matrix is not None:
             # Load pre-trained weights. Should be torch FloatTensor
             self.embedding.from_pretrained(embedding_matrix)
+
+        if freeze_embedding_layer:
+            self.embedding.weight.requires_grad = False
 
         self.dropout = nn.Dropout(dropout)
         self.convs = nn.ModuleList(
