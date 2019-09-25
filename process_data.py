@@ -17,7 +17,7 @@ def build_data_cv(neg_file, pos_file, cv=10, clean_string=True):
     """
     Loads data and split into 10 folds.
     """
-    revs = []
+    reviews = []
     vocab = defaultdict(float)
     for positivity, file in enumerate([neg_file, pos_file]):
         with open(file, "r", encoding="utf-8") as f:
@@ -37,8 +37,8 @@ def build_data_cv(neg_file, pos_file, cv=10, clean_string=True):
                     "num_words": len(words),
                     "split": np.random.randint(0, cv),
                 }
-                revs.append(datum)
-    return revs, vocab
+                reviews.append(datum)
+    return reviews, vocab
 
 
 def build_embedding_matrix(model_bin_path, vocab, min_threshold=1):

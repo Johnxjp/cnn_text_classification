@@ -1,9 +1,30 @@
 """Training and evaluation script"""
 
 import pickle
-import sys
+import argparse
+
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
 
 from cnn import YKCNNClassifier
+from utils import create_dataloader
+
+
+def cli_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "pickle_path", help="Path to pickle file produced by `process_data.py`"
+    )
+    parser.add_argument(
+        "training_method",
+        default="static",
+        choices=["static", "non_static", "random"],
+    )
+    parser.add_argument("--cv_folds", type=int, default=10)
+
+    return parser.parse_args()
 
 
 def load_data(pickle_file):
@@ -16,9 +37,83 @@ def load_data(pickle_file):
     return contents
 
 
+def train(
+    train_x,
+    train_y,
+    embedding_matrix,
+    lr_decay=0.95,
+    kernel_heights=[3, 4, 5],
+    hidden_units=[100, 2],
+    shuffle_batch=True,
+    n_epochs=25,
+    sqr_norm_lim=3,
+    batch_size=50,
+    dropout=0.5,
+    freeze_embedding_layer=True,
+):
+    model = YKCNNClassifier(
+        vocab_size,
+        max_sequence_length,
+        output_dims=2,
+        kernel_heights=kernel_heights,
+        embed_dim=embedding_dims,
+        fc_dropout=dropout,
+        hidden_dims=hidden_units,
+        embedding_matrix=embedding_matrix,
+        freeze_embedding_layer=freeze_embedding_layer,
+    )
+
+    optimiser = optim.Adadelta(model.parameters(), weight_decay=3)
+    lr_scheduler = optim.lr_scheduler.ExponentialLR()
+    train_dataloader = create_dataloader(
+        train_x, train_y, batch_size, shuffle_batch
+    )
+    loss = nn.CrossEntropyLoss()
+
+    # Training Loop
+
+
+def get_id_from_sequence(
+    sequence, word2id, max_sequence_length=56, pad_index=0
+):
+    """Transforms sentence into a list of indices. Pad with zeroes."""
+    x = np.zeros(max_sequence_length) + pad_index
+    for index, word in enumerate(sequence.split()):
+        x[index] = word2id[word]
+    return x
+
+
+def get_train_test_inds(cv, splits):
+    """
+    Returns training and test indices based on the split
+    digit stored in the review object
+    """
+    id_split = np.array(splits, dtype=np.int)
+    bool_mask = id_split == cv
+    return np.where(~bool_mask), np.where(bool_mask)
+
+
+def make_cv_data(reviews, word2id, cv, max_sequence_length=56):
+    """Transforms sentences into a 2-d matrix of sequences"""
+    sequence_ids = np.empty((len(reviews, max_sequence_length)), dtype=np.int)
+    labels = np.empty((len(reviews)), dtype=np.int)
+
+    for i, review in enumerate(reviews):
+        sequence_ids[i] = get_id_from_sequence(
+            review["text"], word2id, max_sequence_length
+        )
+        labels[i] = review["y"]
+
+    train_inds, test_inds = get_train_test_inds(
+        cv, [review["split"] for review in reviews]
+    )
+    train_x, train_y = sequence_ids[train_inds], labels[train_inds]
+    test_x, test_y = sequence_ids[test_inds], labels[test_inds]
+
+    return train_x, train_y, test_x, test_y
+
+
 if __name__ == "__main__":
-    pickle_file_path = sys.argv[1]
-    train_method = sys.argv[2]
 
     reviews, embedding_matrix, random_matrix, word2id, vocab = load_data(
         pickle_file_path
@@ -37,17 +132,30 @@ if __name__ == "__main__":
     if train_method == "non_static":
         freeze_embedding_layer = False
 
-    model = YKCNNClassifier(
-        vocab_size,
-        max_sequence_length,
-        output_dims=2,
-        embed_dim=embedding_dims,
-        dropout=dropout,
-        embedding_matrix=embedding_matrix,
-        freeze_embedding_layer=freeze_embedding_layer,
-    )
+    for fold in range(cv_folds):
+        train_x, train_y, test_x, test_y = make_cv_data(
+            reviews,
+            word2id,
+            fold,
+            max_l=max_sequence_length,
+            dimension=embedding_dims,
+            filter_h=5,
+        )
+        perf = train(
+            train_x,
+            train_y,
+            embedding_matrix,
+            lr_decay=0.95,
+            filter_hs=[3, 4, 5],
+            conv_non_linear="relu",
+            hidden_units=[100, 2],
+            shuffle_batch=True,
+            n_epochs=25,
+            sqr_norm_lim=3,
+            batch_size=50,
+            dropout_rate=[0.5],
+            freeze_embedding_layer=freeze_embedding_layer,
+        )
 
-    # TODO: Split data into CV
-    # TODO: Load Data
     # TODO: Train
     # TODO: Evaluate

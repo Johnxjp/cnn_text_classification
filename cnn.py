@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from softmax import Softmax
+
 
 class YKCNNClassifier(nn.Module):
     def __init__(
@@ -17,7 +19,8 @@ class YKCNNClassifier(nn.Module):
         embed_dim=300,
         padding_idx=0,
         kernel_heights=[3, 4, 5],
-        dropout=0,
+        hidden_dims=[],
+        fc_dropout=0,
         embedding_matrix=None,
         freeze_embedding_layer=True,
     ):
@@ -27,7 +30,9 @@ class YKCNNClassifier(nn.Module):
         self.n_kernels = len(kernel_heights)
         self.pool_sizes = [(max_seq_length - K, 1) for K in kernel_heights]
         self.max_seq_length = max_seq_length
+        self.hidden_dims = hidden_dims
         self.output_dims = output_dims
+        self.fc_dropout = fc_dropout
         self.embedding = nn.Embedding(
             vocabulary_size, embed_dim, padding_idx=0
         )
@@ -38,7 +43,6 @@ class YKCNNClassifier(nn.Module):
         if freeze_embedding_layer:
             self.embedding.weight.requires_grad = False
 
-        self.dropout = nn.Dropout(dropout)
         self.convs = nn.ModuleList(
             [
                 nn.Conv2d(
@@ -55,7 +59,12 @@ class YKCNNClassifier(nn.Module):
                 for pool_size in self.pool_sizes
             ]
         )
-        self.fc = nn.Linear(self.out_channels * self.n_kernels, output_dims)
+        self.fc = Softmax(
+            input_dim=self.out_channels * self.n_kernels,
+            hidden_dims=self.hidden_dims,
+            output_dims=self.output_dims,
+            dropout=self.fc_dropout,
+        )
 
     def forward(self, x):
         """
@@ -82,5 +91,4 @@ class YKCNNClassifier(nn.Module):
 
         # Reshape to pass into fully connected
         x = x.view(batch_size, -1)
-        x = self.dropout(x)
         return self.fc(x)
