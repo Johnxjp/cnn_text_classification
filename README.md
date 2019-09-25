@@ -10,7 +10,8 @@ The data is available in the `./data` folder. To process run:
 python process_data.py <word2vec_bin_path> ./data
 ```
 
-The pre-trained Google News word2vec binary can be downloaded [here](https://drive.google.com/file/d/0B7XkCwpI5KDYNlNUTTlSS21pQmM/edit).
+The pre-trained Google News word2vec binary can be downloaded [here](https://drive.google.com/file/d/0B7XkCwpI5KDYNlNUTTlSS21pQmM/edit) or you
+can run `make google-news-word2vec` which will download the file to your directory
 
 ## Requirements
 

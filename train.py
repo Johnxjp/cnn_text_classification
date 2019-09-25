@@ -13,7 +13,6 @@ def _train_loop(
 ):
 
     outputs, losses = [], []
-    model.train()
     for x, y in dataloader:
         if use_gpu:
             x, y = x.cuda(), y.cuda()
@@ -33,13 +32,19 @@ def _train_loop(
     return outputs, losses
 
 
-def train_model(model, dataloader, n_epochs, lr_decay, use_gpu):
+def train_model(model, dataloader, n_epochs, l2, lr_decay=None, use_gpu=False):
 
-    optimiser = optim.Adadelta(model.parameters(), weight_decay=3)
-    lr_scheduler = optim.lr_scheduler.ExponentialLR(optimiser, gamma=lr_decay)
+    optimiser = optim.Adadelta(model.parameters(), weight_decay=l2)
+
+    lr_scheduler = None
+    if lr_decay is not None:
+        lr_scheduler = optim.lr_scheduler.ExponentialLR(
+            optimiser, gamma=lr_decay
+        )
     loss = nn.CrossEntropyLoss()
 
     # Training Loop
+    model.train()
     for e in range(n_epochs):
         _, batch_losses = _train_loop(
             model, dataloader, loss, optimiser, lr_scheduler, use_gpu

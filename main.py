@@ -40,7 +40,11 @@ def load_data(pickle_file):
 def get_id_from_sequence(
     sequence, word2id, max_sequence_length=56, pad_index=0
 ):
-    """Transforms sentence into a list of indices. Pad with zeroes."""
+    """
+    Transforms sentence into a list of indices. Pad with zeroes.
+
+    TODO: Correct with unknown words. Kim skips over them
+    """
     x = np.zeros(max_sequence_length) + pad_index
     for index, word in enumerate(sequence.split()):
         x[index] = word2id[word]
@@ -115,9 +119,11 @@ def train_eval_loop(
         train_x, train_y, batch_size, shuffle_batch
     )
 
-    model = train_model(model, train_dataloader, n_epochs, lr_decay, use_gpu)
+    model = train_model(
+        model, train_dataloader, n_epochs, l2, lr_decay, use_gpu
+    )
     class_predictions = eval_model(
-        model, torch.FloatTensor(test_x), use_gpu
+        model, torch.LongTensor(test_x), use_gpu
     ).numpy()
     return accuracy(test_y, class_predictions)
 
@@ -132,7 +138,7 @@ if __name__ == "__main__":
     reviews, embedding_matrix, random_matrix, word2id, vocab = load_data(
         data_file
     )
-
+    print("Sample review", reviews[1])
     print("N Reviews", len(reviews))
     print("Embedding Matrix Size", embedding_matrix.shape)
     print("Vocab Size", len(vocab))
@@ -158,7 +164,6 @@ if __name__ == "__main__":
         )
         print("Data Shapes")
         print(train_x.shape, train_y.shape, test_x.shape, test_y.shape)
-
         print(f"Training for fold {fold + 1}")
         acc = train_eval_loop(
             train_x,

@@ -68,15 +68,12 @@ def build_embedding_matrix(model_bin_path, vocab, min_threshold=1):
     word2id[0] = "<pad>"
     for id, word in enumerate(vocab, start=1):
         word2id[word] = id
-        if (
-            not w2v_model.vocab.get(word, False)
-            and vocab[word] >= min_threshold
-        ):
+        if w2v_model.vocab.get(word, False):
+            embedding_matrix[id] = w2v_model.get_vector(word)
+        elif vocab[word] >= min_threshold:
             embedding_matrix[id] = np.random.uniform(
                 -0.25, 0.25, embedding_dimension
             )
-        else:
-            embedding_matrix[id] = w2v_model.get_vector(word)
 
     return embedding_matrix, word2id
 
@@ -126,13 +123,13 @@ if __name__ == "__main__":
 
     print("num words already in word2vec:", len(word2id))
     random_matrix = np.random.random(embedding_matrix.shape)
-    # Set padding to zeros
-    random_matrix[0] = np.zeros((embedding_matrix.shape[1]))
     # Shift into range -0.25, 0.25
     random_matrix = random_matrix * 0.5 - 0.25
+    # Set padding to zeros
+    random_matrix[0] = np.zeros((embedding_matrix.shape[1]))
 
-    pickle.dump(
-        [reviews, embedding_matrix, random_matrix, word2id, vocab],
-        open("mr.p", "wb"),
-    )
+    with open("mr.p", "wb") as f:
+        pickle.dump(
+            [reviews, embedding_matrix, random_matrix, word2id, vocab], f
+        )
     print("dataset created!")
