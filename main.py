@@ -116,7 +116,9 @@ def train_eval_loop(
     )
 
     model = train_model(model, train_dataloader, n_epochs, lr_decay, use_gpu)
-    class_predictions = eval_model(model, test_x, use_gpu).numpy()
+    class_predictions = eval_model(
+        model, torch.FloatTensor(test_x), use_gpu
+    ).numpy()
     return accuracy(test_y, class_predictions)
 
 
