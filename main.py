@@ -5,8 +5,6 @@ import argparse
 
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
 
 from cnn import YKCNNClassifier
 from utils import create_dataloader
@@ -20,12 +18,12 @@ def cli_parser():
         "pickle_path", help="Path to pickle file produced by `process_data.py`"
     )
     parser.add_argument(
-        "training_method",
+        "train_method",
         default="static",
         choices=["static", "non_static", "random"],
     )
     parser.add_argument("--cv_folds", type=int, default=10)
-
+    parser.add_argument("--use_gpu", type=bool, default=False)
     return parser.parse_args()
 
 
@@ -37,47 +35,6 @@ def load_data(pickle_file):
         contents = pickle.load(f)
 
     return contents
-
-
-def train_eval_loop(
-    train_x,
-    train_y,
-    test_x,
-    test_y,
-    embedding_matrix,
-    freeze_embedding_layer=True,
-    dropout=0.5,
-    kernel_heights=[3, 4, 5],
-    hidden_units=[100, 2],
-    lr_decay=0.95,
-    shuffle_batch=True,
-    n_epochs=25,
-    sqr_norm_lim=3,
-    batch_size=50,
-):
-    model = YKCNNClassifier(
-        vocab_size,
-        max_sequence_length,
-        output_dims=2,
-        kernel_heights=kernel_heights,
-        embed_dim=embedding_dims,
-        fc_dropout=dropout,
-        hidden_dims=hidden_units,
-        embedding_matrix=embedding_matrix,
-        freeze_embedding_layer=freeze_embedding_layer,
-    )
-
-    train_dataloader = create_dataloader(
-        train_x, train_y, batch_size, shuffle_batch
-    )
-
-    use_gpu = False
-    model = train_model(model, train_dataloader, n_epochs, lr_decay, use_gpu)
-    class_predictions = eval_model(model, test_x, use_gpu)
-    acc_score = accuracy(test_y, class_predictions.numpy())
-    print("Accuracy", acc_score)
-
-    return acc_score
 
 
 def get_id_from_sequence(
@@ -102,7 +59,7 @@ def get_train_test_inds(cv, splits):
 
 def make_cv_data(reviews, word2id, cv, max_sequence_length=56):
     """Transforms sentences into a 2-d matrix of sequences"""
-    sequence_ids = np.empty((len(reviews, max_sequence_length)), dtype=np.int)
+    sequence_ids = np.empty((len(reviews), max_sequence_length), dtype=np.int)
     labels = np.empty((len(reviews)), dtype=np.int)
 
     for i, review in enumerate(reviews):
@@ -120,18 +77,71 @@ def make_cv_data(reviews, word2id, cv, max_sequence_length=56):
     return train_x, train_y, test_x, test_y
 
 
+def train_eval_loop(
+    train_x,
+    train_y,
+    test_x,
+    test_y,
+    vocab_size,
+    embedding_matrix,
+    max_sequence_length,
+    kernel_heights=[3, 4, 5],
+    hidden_units=[100, 2],
+    freeze_embedding_layer=True,
+    dropout=0.5,
+    lr_decay=0.95,
+    shuffle_batch=True,
+    n_epochs=25,
+    l2=3,
+    batch_size=50,
+    use_gpu=False,
+):
+    """Training and evaluation loop for a single fold"""
+    model = YKCNNClassifier(
+        vocab_size,
+        max_sequence_length,
+        output_dims=2,
+        kernel_heights=kernel_heights,
+        embed_dim=embedding_dims,
+        fc_dropout=dropout,
+        hidden_dims=hidden_units,
+        embedding_matrix=embedding_matrix,
+        freeze_embedding_layer=freeze_embedding_layer,
+    )
+    if use_gpu:
+        model = model.cuda()
+
+    train_dataloader = create_dataloader(
+        train_x, train_y, batch_size, shuffle_batch
+    )
+
+    model = train_model(model, train_dataloader, n_epochs, lr_decay, use_gpu)
+    class_predictions = eval_model(model, test_x, use_gpu).numpy()
+    return accuracy(test_y, class_predictions)
+
+
 if __name__ == "__main__":
+    args = cli_parser()
+    data_file = args.pickle_path
+    train_method = args.train_method
+    cv_folds = args.cv_folds
+    use_gpu = args.use_gpu
 
     reviews, embedding_matrix, random_matrix, word2id, vocab = load_data(
-        pickle_file_path
+        data_file
     )
+
+    print("N Reviews", len(reviews))
+    print("Embedding Matrix Size", embedding_matrix.shape)
+    print("Vocab Size", len(vocab))
+    print("Map Size", len(word2id))
 
     # Parameters for model
     max_sequence_length = max([r["num_words"] for r in reviews])
     embedding_dims = embedding_matrix.shape[1]
-    vocab_size = len(vocab)
     freeze_embedding_layer = True
-    dropout = 0.5
+    # Use word2id because it contains special tokens
+    all_vocab_size = len(word2id)
 
     if train_method == "random":
         embedding_matrix = random_matrix
@@ -142,30 +152,34 @@ if __name__ == "__main__":
     performances = []
     for fold in range(cv_folds):
         train_x, train_y, test_x, test_y = make_cv_data(
-            reviews,
-            word2id,
-            fold,
-            max_l=max_sequence_length,
-            dimension=embedding_dims,
-            filter_h=5,
+            reviews, word2id, fold, max_sequence_length=max_sequence_length
         )
-        perf = train_eval_loop(
+        print("Data Shapes")
+        print(train_x.shape, train_y.shape, test_x.shape, test_y.shape)
+
+        print(f"Training for fold {fold + 1}")
+        acc = train_eval_loop(
             train_x,
             train_y,
-            embedding_matrix,
+            test_x,
+            test_y,
+            all_vocab_size,
+            torch.FloatTensor(embedding_matrix),
+            max_sequence_length,
             lr_decay=0.95,
-            filter_hs=[3, 4, 5],
-            conv_non_linear="relu",
-            hidden_units=[100, 2],
+            kernel_heights=[3, 4, 5],
+            hidden_units=[100],
             shuffle_batch=True,
             n_epochs=25,
-            sqr_norm_lim=3,
+            l2=3,
             batch_size=50,
-            dropout_rate=[0.5],
+            dropout=0.5,
             freeze_embedding_layer=freeze_embedding_layer,
+            use_gpu=use_gpu,
         )
-
-        performances.append(perf)
+        print("Accuracy", acc)
+        performances.append(acc)
+        break
 
     print("Mean Accuracy", np.mean(performances))
     print("Std Perf", np.std(performances))

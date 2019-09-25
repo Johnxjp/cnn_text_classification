@@ -65,6 +65,7 @@ def build_embedding_matrix(model_bin_path, vocab, min_threshold=1):
         (len(vocab) + 1, embedding_dimension), dtype=np.float32
     )
 
+    word2id[0] = "<pad>"
     for id, word in enumerate(vocab, start=1):
         word2id[word] = id
         if (
@@ -125,6 +126,8 @@ if __name__ == "__main__":
 
     print("num words already in word2vec:", len(word2id))
     random_matrix = np.random.random(embedding_matrix.shape)
+    # Set padding to zeros
+    random_matrix[0] = np.zeros((embedding_matrix.shape[1]))
     # Shift into range -0.25, 0.25
     random_matrix = random_matrix * 0.5 - 0.25
 

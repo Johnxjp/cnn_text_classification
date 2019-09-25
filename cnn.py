@@ -33,6 +33,9 @@ class YKCNNClassifier(nn.Module):
         self.hidden_dims = hidden_dims
         self.output_dims = output_dims
         self.fc_dropout = fc_dropout
+
+        # Assumes vocab size is same as embedding matrix size. Therefore should
+        # contain special tokens e.g. <pad>
         self.embedding = nn.Embedding(
             vocabulary_size, embed_dim, padding_idx=0
         )
@@ -62,7 +65,7 @@ class YKCNNClassifier(nn.Module):
         self.fc = Softmax(
             input_dim=self.out_channels * self.n_kernels,
             hidden_dims=self.hidden_dims,
-            output_dims=self.output_dims,
+            output_dim=self.output_dims,
             dropout=self.fc_dropout,
         )
 
