@@ -10,6 +10,8 @@ import torch.optim as optim
 
 from cnn import YKCNNClassifier
 from utils import create_dataloader
+from train import train_model
+from evaluation import eval_model, accuracy
 
 
 def cli_parser():
@@ -37,19 +39,21 @@ def load_data(pickle_file):
     return contents
 
 
-def train(
+def train_eval_loop(
     train_x,
     train_y,
+    test_x,
+    test_y,
     embedding_matrix,
-    lr_decay=0.95,
+    freeze_embedding_layer=True,
+    dropout=0.5,
     kernel_heights=[3, 4, 5],
     hidden_units=[100, 2],
+    lr_decay=0.95,
     shuffle_batch=True,
     n_epochs=25,
     sqr_norm_lim=3,
     batch_size=50,
-    dropout=0.5,
-    freeze_embedding_layer=True,
 ):
     model = YKCNNClassifier(
         vocab_size,
@@ -63,14 +67,17 @@ def train(
         freeze_embedding_layer=freeze_embedding_layer,
     )
 
-    optimiser = optim.Adadelta(model.parameters(), weight_decay=3)
-    lr_scheduler = optim.lr_scheduler.ExponentialLR()
     train_dataloader = create_dataloader(
         train_x, train_y, batch_size, shuffle_batch
     )
-    loss = nn.CrossEntropyLoss()
 
-    # Training Loop
+    use_gpu = False
+    model = train_model(model, train_dataloader, n_epochs, lr_decay, use_gpu)
+    class_predictions = eval_model(model, test_x, use_gpu)
+    acc_score = accuracy(test_y, class_predictions.numpy())
+    print("Accuracy", acc_score)
+
+    return acc_score
 
 
 def get_id_from_sequence(
@@ -132,6 +139,7 @@ if __name__ == "__main__":
     if train_method == "non_static":
         freeze_embedding_layer = False
 
+    performances = []
     for fold in range(cv_folds):
         train_x, train_y, test_x, test_y = make_cv_data(
             reviews,
@@ -141,7 +149,7 @@ if __name__ == "__main__":
             dimension=embedding_dims,
             filter_h=5,
         )
-        perf = train(
+        perf = train_eval_loop(
             train_x,
             train_y,
             embedding_matrix,
@@ -157,5 +165,7 @@ if __name__ == "__main__":
             freeze_embedding_layer=freeze_embedding_layer,
         )
 
-    # TODO: Train
-    # TODO: Evaluate
+        performances.append(perf)
+
+    print("Mean Accuracy", np.mean(performances))
+    print("Std Perf", np.std(performances))

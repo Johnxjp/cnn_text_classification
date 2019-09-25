@@ -92,3 +92,11 @@ class YKCNNClassifier(nn.Module):
         # Reshape to pass into fully connected
         x = x.view(batch_size, -1)
         return self.fc(x)
+
+    def predict(self, x):
+        with torch.no_grad():
+            return F.softmax(self.forward(x), dim=1)
+
+    def predict_classes(self, x):
+        predictions = self.predict(x)
+        return torch.argmax(predictions, dim=1)
