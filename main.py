@@ -90,13 +90,13 @@ def train_eval_loop(
     embedding_matrix,
     max_sequence_length,
     kernel_heights=[3, 4, 5],
-    hidden_units=[100, 2],
+    hidden_units=[100],
     freeze_embedding_layer=True,
-    dropout=0.5,
-    lr_decay=0.95,
+    dropout=0,
+    lr_decay=None,
     shuffle_batch=True,
     n_epochs=25,
-    l2=3,
+    l2=0,
     batch_size=50,
     use_gpu=False,
 ):
@@ -122,10 +122,11 @@ def train_eval_loop(
     model = train_model(
         model, train_dataloader, n_epochs, l2, lr_decay, use_gpu
     )
-    class_predictions = eval_model(
-        model, torch.LongTensor(test_x), use_gpu
-    ).numpy()
-    return accuracy(test_y, class_predictions)
+    class_predictions = eval_model(model, torch.LongTensor(test_x), use_gpu)
+    if use_gpu:
+        class_predictions = class_predictions.cpu()
+
+    return accuracy(test_y, class_predictions.numpy())
 
 
 if __name__ == "__main__":
@@ -138,7 +139,7 @@ if __name__ == "__main__":
     reviews, embedding_matrix, random_matrix, word2id, vocab = load_data(
         data_file
     )
-    print("Sample review", reviews[1])
+    print("Sample review", reviews[1:5])
     print("N Reviews", len(reviews))
     print("Embedding Matrix Size", embedding_matrix.shape)
     print("Vocab Size", len(vocab))
