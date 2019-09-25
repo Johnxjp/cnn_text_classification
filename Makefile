@@ -1,2 +1,5 @@
 google-news-word2vec:
-	wget https://drive.google.com/file/d/0B7XkCwpI5KDYNlNUTTlSS21pQmM/edit
+	wget https://s3.amazonaws.com/dl4j-distribution/GoogleNews-vectors-negative300.bin.gz
+	gunzip GoogleNews-vectors-negative300.bin.gz
+
+	
