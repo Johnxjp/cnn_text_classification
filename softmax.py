@@ -27,8 +27,8 @@ class Softmax(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         for h in self.hidden_layers:
-            x = F.relu(h(x))
             x = self.dropout(x)
+            x = F.relu(h(x))
 
         return self.out(x)
 

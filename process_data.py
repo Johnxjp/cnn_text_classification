@@ -78,7 +78,7 @@ def build_embedding_matrix(model_bin_path, vocab, min_threshold=1):
     return embedding_matrix, word2id
 
 
-def clean_str(string, TREC=False):
+def clean_str(string):
     """
     Tokenization/string cleaning for all datasets except for SST.
     Every dataset is lower cased except for TREC
@@ -96,7 +96,7 @@ def clean_str(string, TREC=False):
     string = re.sub(r"\)", " \) ", string)
     string = re.sub(r"\?", " \? ", string)
     string = re.sub(r"\s{2,}", " ", string)
-    return string.strip() if TREC else string.strip().lower()
+    return string.strip().lower()
 
 
 if __name__ == "__main__":

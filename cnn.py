@@ -32,7 +32,6 @@ class YKCNNClassifier(nn.Module):
         self.max_seq_length = max_seq_length
         self.hidden_dims = hidden_dims
         self.output_dims = output_dims
-        self.fc_dropout = fc_dropout
 
         # Assumes vocab size is same as embedding matrix size. Therefore should
         # contain special tokens e.g. <pad>
@@ -62,12 +61,15 @@ class YKCNNClassifier(nn.Module):
                 for pool_size in self.pool_sizes
             ]
         )
-        self.fc = Softmax(
-            input_dim=self.out_channels * self.n_kernels,
-            hidden_dims=self.hidden_dims,
-            output_dim=self.output_dims,
-            dropout=self.fc_dropout,
-        )
+        self.dropout = nn.Dropout(fc_dropout)
+        self.fc = nn.Linear(self.out_channels * self.n_kernels, output_dims)
+
+        # self.fc = Softmax(
+        #     input_dim=self.out_channels * self.n_kernels,
+        #     hidden_dims=self.hidden_dims,
+        #     output_dim=self.output_dims,
+        #     dropout=self.fc_dropout,
+        # )
 
     def forward(self, x):
         """
@@ -94,6 +96,7 @@ class YKCNNClassifier(nn.Module):
 
         # Reshape to pass into fully connected
         x = x.view(batch_size, -1)
+        x = self.dropout(x)
         return self.fc(x)
 
     def predict(self, x):
