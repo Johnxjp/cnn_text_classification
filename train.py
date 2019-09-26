@@ -3,18 +3,17 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 
-from torch.nn.utils import clip_grad_norm_
 
-
-def _train_loop(
+def _train_step(
     model,
     dataloader,
     loss_criterion,
     optimiser,
-    l2_clip_norm=None,
-    lr_scheduler=None,
+    lr_scheduler,
+    l2_norm_clip=0,
     use_gpu=False,
 ):
+    """One epoch of training"""
     outputs, losses = [], []
     for x, y in dataloader:
         if use_gpu:
@@ -25,57 +24,42 @@ def _train_loop(
         optimiser.zero_grad()
         loss.backward()
         optimiser.step()
-        if l2_clip_norm is not None:
+        if l2_norm_clip > 0:
             # Clip weights in final layer
             with torch.no_grad():
-                norms = torch.norm(model.fc.weight, dim=1, keepdim=True)
-                print("Before", norms)
-                norms_clipped = torch.clamp_max(norms, l2_clip_norm)
-                model.fc.weight.div_(norms).mul_(norms_clipped)
+                norms = torch.norm(model.fc.out.weight, dim=1, keepdim=True)
+                norms_clipped = torch.clamp_max(norms, l2_norm_clip)
 
-                norms = torch.norm(model.fc.weight, dim=1, keepdim=True)
-                print("After", norms)
+                # Renormalise weights
+                model.fc.out.weight.div_(norms).mul_(norms_clipped)
 
         outputs.append(out)
         losses.append(loss.item())
 
-    if lr_scheduler is not None:
-        lr_scheduler.step()
-
+    lr_scheduler.step()
     return outputs, losses
 
 
 def train_model(
-    model,
-    dataloader,
-    n_epochs,
-    l2_clip_norm=None,
-    lr_decay=None,
-    use_gpu=False,
+    model, dataloader, n_epochs, l2_norm_clip=0, lr_decay=1, use_gpu=False
 ):
-
     optimiser = optim.Adadelta(model.parameters())
-
-    lr_scheduler = None
-    if lr_decay is not None:
-        lr_scheduler = optim.lr_scheduler.ExponentialLR(
-            optimiser, gamma=lr_decay
-        )
+    lr_scheduler = optim.lr_scheduler.ExponentialLR(optimiser, gamma=lr_decay)
     loss = nn.CrossEntropyLoss()
 
     # Training Loop
     model.train()
     for e in range(n_epochs):
-        _, batch_losses = _train_loop(
+        _, batch_losses = _train_step(
             model,
             dataloader,
             loss,
             optimiser,
-            l2_clip_norm,
             lr_scheduler,
+            l2_norm_clip,
             use_gpu,
         )
         av_train_loss = np.average(batch_losses)
-        print(f"Epoch {e + 1}: Training Loss {av_train_loss}")
+        print(f"Epoch {e + 1}: Training Loss = {av_train_loss:.4}")
 
     return model

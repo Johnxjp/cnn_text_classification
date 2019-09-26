@@ -1,18 +1,10 @@
-from typing import Sequence
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
 class Softmax(nn.Module):
-    def __init__(
-        self,
-        input_dim: int,
-        hidden_dims: Sequence[int],
-        output_dim: int,
-        dropout: float = 0.0,
-    ) -> None:
+    def __init__(self, input_dim, hidden_dims, output_dim, dropout):
         super().__init__()
         self.dropout = nn.Dropout(dropout)
         self.input_dim = input_dim
@@ -25,7 +17,7 @@ class Softmax(nn.Module):
 
         self.out = nn.Linear(input_dim, output_dim)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
         for h in self.hidden_layers:
             x = self.dropout(x)
             x = F.relu(h(x))
@@ -36,10 +28,10 @@ class Softmax(nn.Module):
 
         return self.out(x)
 
-    def predict(self, x: torch.Tensor) -> torch.Tensor:
+    def predict(self, x):
         with torch.no_grad():
             return F.softmax(self.forward(x), dim=1)
 
-    def predict_classes(self, x: torch.Tensor) -> torch.Tensor:
+    def predict_classes(self, x):
         predictions = self.predict(x)
         return torch.argmax(predictions, dim=1)

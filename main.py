@@ -18,7 +18,7 @@ def cli_parser():
         "pickle_path", help="Path to pickle file produced by `process_data.py`"
     )
     parser.add_argument(
-        "train_method",
+        "mode",
         default="static",
         choices=["static", "non_static", "random"],
     )
@@ -33,7 +33,6 @@ def load_data(pickle_file):
     """
     with open(pickle_file, "rb") as f:
         contents = pickle.load(f)
-
     return contents
 
 
@@ -42,12 +41,13 @@ def get_id_from_sequence(
 ):
     """
     Transforms sentence into a list of indices. Pad with zeroes.
-
-    TODO: Correct with unknown words. Kim skips over them
     """
     x = np.zeros(max_sequence_length) + pad_index
-    for index, word in enumerate(sequence.split()):
-        x[index] = word2id[word]
+    index = 0
+    for word in sequence.split():
+        if word in word2id:
+            x[index] = word2id[word]
+            index += 1
     return x
 
 
@@ -111,7 +111,7 @@ def train_eval_loop(
         embed_dim=embedding_dims,
         fc_dropout=dropout,
         hidden_dims=hidden_units,
-        embedding_matrix=embedding_matrix,
+        embedding_matrix=torch.FloatTensor(embedding_matrix),
         freeze_embedding_layer=freeze_embedding_layer,
     )
     if use_gpu:
@@ -134,7 +134,7 @@ def train_eval_loop(
 if __name__ == "__main__":
     args = cli_parser()
     data_file = args.pickle_path
-    train_method = args.train_method
+    mode = args.mode
     cv_folds = args.cv_folds
     use_gpu = args.use_gpu
 
@@ -151,15 +151,15 @@ if __name__ == "__main__":
 
     # Parameters for model
     embedding_dims = embedding_matrix.shape[1]
-    freeze_embedding_layer = True
+    freeze_embedding_layer = False
     # Use word2id because it contains special tokens
     all_vocab_size = len(word2id)
 
-    if train_method == "random":
+    if mode == "random":
         embedding_matrix = random_matrix
 
-    if train_method == "non_static":
-        freeze_embedding_layer = False
+    if mode == "static":
+        freeze_embedding_layer = True
 
     performances = []
     for fold in range(cv_folds):
@@ -175,17 +175,17 @@ if __name__ == "__main__":
             test_x,
             test_y,
             all_vocab_size,
-            torch.FloatTensor(embedding_matrix),
+            embedding_matrix,
             max_sequence_length,
-            lr_decay=0.95,
             kernel_heights=[3, 4, 5],
             hidden_units=[],
+            freeze_embedding_layer=freeze_embedding_layer,
+            lr_decay=0.95,
             shuffle_batch=True,
             n_epochs=25,
             l2_norm_clip=3,
             batch_size=50,
             dropout=0.5,
-            freeze_embedding_layer=freeze_embedding_layer,
             use_gpu=use_gpu,
         )
         print("Accuracy", acc)

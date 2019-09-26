@@ -23,17 +23,14 @@ def build_data_cv(neg_file, pos_file, cv=10, clean_string=True):
         with open(file, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
-                if clean_string:
-                    orig_rev = clean_str(line)
-                else:
-                    orig_rev = line.lower()
-                words = orig_rev.split()
+                cleaned_rev = clean_str(line) if clean_string else line.lower()
+                words = cleaned_rev.split()
                 unique_words = set(words)
                 for word in unique_words:
                     vocab[word] += 1
                 datum = {
                     "y": positivity,
-                    "text": orig_rev,
+                    "text": cleaned_rev,
                     "num_words": len(words),
                     "split": np.random.randint(0, cv),
                 }
@@ -67,10 +64,11 @@ def build_embedding_matrix(model_bin_path, vocab, min_threshold=1):
 
     word2id[0] = "<pad>"
     for id, word in enumerate(vocab, start=1):
-        word2id[word] = id
-        if w2v_model.vocab.get(word, False):
+        if w2v_model.vocab.get(word, None) is not None:
+            word2id[word] = id
             embedding_matrix[id] = w2v_model.get_vector(word)
         elif vocab[word] >= min_threshold:
+            word2id[word] = id
             embedding_matrix[id] = np.random.uniform(
                 -0.25, 0.25, embedding_dimension
             )

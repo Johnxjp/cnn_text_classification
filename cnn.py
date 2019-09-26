@@ -36,7 +36,7 @@ class YKCNNClassifier(nn.Module):
         # Assumes vocab size is same as embedding matrix size. Therefore should
         # contain special tokens e.g. <pad>
         self.embedding = nn.Embedding(
-            vocabulary_size, embed_dim, padding_idx=0
+            vocabulary_size, embed_dim, padding_idx=padding_idx
         )
         if embedding_matrix is not None:
             # Load pre-trained weights. Should be torch FloatTensor
@@ -61,15 +61,12 @@ class YKCNNClassifier(nn.Module):
                 for pool_size in self.pool_sizes
             ]
         )
-        self.dropout = nn.Dropout(fc_dropout)
-        self.fc = nn.Linear(self.out_channels * self.n_kernels, output_dims)
-
-        # self.fc = Softmax(
-        #     input_dim=self.out_channels * self.n_kernels,
-        #     hidden_dims=self.hidden_dims,
-        #     output_dim=self.output_dims,
-        #     dropout=self.fc_dropout,
-        # )
+        self.fc = Softmax(
+            input_dim=self.out_channels * self.n_kernels,
+            hidden_dims=self.hidden_dims,
+            output_dim=self.output_dims,
+            dropout=fc_dropout,
+        )
 
     def forward(self, x):
         """
@@ -96,7 +93,6 @@ class YKCNNClassifier(nn.Module):
 
         # Reshape to pass into fully connected
         x = x.view(batch_size, -1)
-        x = self.dropout(x)
         return self.fc(x)
 
     def predict(self, x):

@@ -1,24 +1,19 @@
-import torch
-import torch.nn as nn
-import numpy as np
 from sklearn import metrics as sk_metrics
 
 
-def eval_model(
-    model: nn.Module, x: torch.Tensor, use_gpu: bool = False
-) -> torch.Tensor:
-
+def eval_model(model, x, use_gpu=False):
+    """Returns a torch tensor with the predicted classes"""
     model.eval()
     if use_gpu:
         x = x.cuda()
-
     return model.predict_classes(x)
 
 
-def accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+def accuracy(y_true, y_pred):
+    """Computes accuracy using sklearn. Arrays should be numpy arrays"""
     return sk_metrics.accuracy_score(y_true, y_pred)
 
 
-def f1_score(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
-    """Returns positive and negative F1 score"""
+def f1_score(y_true, y_pred):
+    """Computes F1 scores for classes. Arrays should be numpy arrays"""
     return sk_metrics.f1_score(y_true, y_pred)
