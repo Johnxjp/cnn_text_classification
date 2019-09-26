@@ -190,7 +190,6 @@ if __name__ == "__main__":
         )
         print("Accuracy", acc)
         performances.append(acc)
-        break
 
     print("Mean Accuracy", np.mean(performances))
     print("Stdev Accuracy", np.std(performances))
