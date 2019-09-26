@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
@@ -26,7 +27,14 @@ def _train_loop(
         optimiser.step()
         if l2_clip_norm is not None:
             # Clip weights in final layer
-            clip_grad_norm_(model.fc.parameters(), l2_clip_norm)
+            with torch.no_grad():
+                norms = torch.norm(model.fc.weight, dim=1, keepdim=True)
+                print("Before", norms)
+                norms_clipped = torch.clamp_max(norms, l2_clip_norm)
+                model.fc.weight.div_(norms).mul_(norms_clipped)
+
+                norms = torch.norm(model.fc.weight, dim=1, keepdim=True)
+                print("After", norms)
 
         outputs.append(out)
         losses.append(loss.item())
