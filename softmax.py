@@ -30,6 +30,10 @@ class Softmax(nn.Module):
             x = self.dropout(x)
             x = F.relu(h(x))
 
+        if len(self.hidden_layers) == 0:
+            # apply dropout on input if only one layer.
+            x = self.dropout(x)
+
         return self.out(x)
 
     def predict(self, x: torch.Tensor) -> torch.Tensor:

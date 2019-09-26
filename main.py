@@ -58,13 +58,15 @@ def get_train_test_inds(cv, splits):
     """
     id_split = np.array(splits, dtype=np.int)
     bool_mask = id_split == cv
-    return np.where(~bool_mask), np.where(bool_mask)
+    train_inds = np.where(~bool_mask)
+    test_inds = np.where(bool_mask)
+    return train_inds, test_inds
 
 
 def make_cv_data(reviews, word2id, cv, max_sequence_length=56):
     """Transforms sentences into a 2-d matrix of sequences"""
-    sequence_ids = np.empty((len(reviews), max_sequence_length), dtype=np.int)
-    labels = np.empty((len(reviews)), dtype=np.int)
+    sequence_ids = np.zeros((len(reviews), max_sequence_length), dtype=np.int)
+    labels = np.zeros((len(reviews)), dtype=np.int)
 
     for i, review in enumerate(reviews):
         sequence_ids[i] = get_id_from_sequence(
@@ -96,7 +98,7 @@ def train_eval_loop(
     lr_decay=None,
     shuffle_batch=True,
     n_epochs=25,
-    l2=0,
+    l2_norm_clip=0,
     batch_size=50,
     use_gpu=False,
 ):
@@ -120,7 +122,7 @@ def train_eval_loop(
     )
 
     model = train_model(
-        model, train_dataloader, n_epochs, l2, lr_decay, use_gpu
+        model, train_dataloader, n_epochs, l2_norm_clip, lr_decay, use_gpu
     )
     class_predictions = eval_model(model, torch.LongTensor(test_x), use_gpu)
     if use_gpu:
@@ -139,14 +141,15 @@ if __name__ == "__main__":
     reviews, embedding_matrix, random_matrix, word2id, vocab = load_data(
         data_file
     )
-    print("Sample review", reviews[1:5])
+    max_sequence_length = max([r["num_words"] for r in reviews])
+    print("Sample review", reviews[1])
     print("N Reviews", len(reviews))
     print("Embedding Matrix Size", embedding_matrix.shape)
     print("Vocab Size", len(vocab))
     print("Map Size", len(word2id))
+    print("Max Sequence Length", max_sequence_length)
 
     # Parameters for model
-    max_sequence_length = max([r["num_words"] for r in reviews])
     embedding_dims = embedding_matrix.shape[1]
     freeze_embedding_layer = True
     # Use word2id because it contains special tokens
@@ -176,10 +179,10 @@ if __name__ == "__main__":
             max_sequence_length,
             lr_decay=0.95,
             kernel_heights=[3, 4, 5],
-            hidden_units=[100],
+            hidden_units=[],
             shuffle_batch=True,
             n_epochs=25,
-            l2=3,
+            l2_norm_clip=3,
             batch_size=50,
             dropout=0.5,
             freeze_embedding_layer=freeze_embedding_layer,
@@ -190,4 +193,4 @@ if __name__ == "__main__":
         break
 
     print("Mean Accuracy", np.mean(performances))
-    print("Std Perf", np.std(performances))
+    print("Stdev Accuracy", np.std(performances))
