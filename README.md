@@ -1,4 +1,4 @@
-# CNN for Sentence Classification
+# CNN for Text Classification
 
 PyTorch implementation of the CNN detailed in the paper [Convolutional Neural Netowrks for Sentence Classification](http://arxiv.org/abs/1408.5882).
 
