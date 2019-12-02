@@ -83,8 +83,8 @@ class YKCNNClassifier(nn.Module):
         x = x.unsqueeze(dim=1)
 
         out_tensors = []
-        for i, (convs, pools) in enumerate(zip(self.convs, self.pools)):
-            activation = pools(F.relu(convs(x)))
+        for (conv, pool) in zip(self.convs, self.pools):
+            activation = pool(F.relu(conv(x)))
             out_tensors.append(activation)
 
         # Output from conv and pooling operation will be of size
